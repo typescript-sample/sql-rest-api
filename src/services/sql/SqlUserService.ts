@@ -1,33 +1,15 @@
 import {User} from '../../models/User';
 import {Pool} from 'pg';
+import {query, queryOne} from './postgresql';
 
 export class SqlUserService {
   constructor(private pool: Pool) {
   }
   all(): Promise<User[]> {
-    return new Promise<User[]>((resolve, reject) => {
-      this.pool.query('SELECT * FROM users ORDER BY id ASC', (err, results) => {
-        if (err) {
-          return reject(err);
-        }
-        else{
-          return resolve(results.rows as any);
-        }
-      })
-    });
+    return query<User>(this.pool, 'SELECT * FROM users ORDER BY id ASC');
   }
   load(id: string): Promise<User> {
-    return new Promise<User>((resolve, reject) => {
-      this.pool.query('SELECT * FROM users WHERE id = $1', 
-      [id],  (err, results) => {
-        if (err) {
-          return reject(err);
-        }
-        else{
-          return resolve(results.rows as any);
-        }
-      })
-    });
+    return queryOne(this.pool, 'SELECT * FROM users WHERE id = $1', [id]);
   }
   insert(user: User): Promise<number> {
     return new Promise<number>((resolve, reject) => {
