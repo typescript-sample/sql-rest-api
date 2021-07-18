@@ -1,20 +1,12 @@
 import {User} from '../../models/User';
 import {Pool} from 'pg';
 
-export const pool = new Pool ({
-  user:'postgres',
-  host: 'localhost',
-  password: 'abcd1234',
-  database: 'masterdata',
-  port: 5432
-}); 
-
 export class SqlUserService {
-  constructor() {
+  constructor(private pool: Pool) {
   }
   all(): Promise<User[]> {
     return new Promise<User[]>((resolve, reject) => {
-      pool.query('SELECT * FROM users ORDER BY id ASC', (err, results) => {
+      this.pool.query('SELECT * FROM users ORDER BY id ASC', (err, results) => {
         if (err) {
           return reject(err);
         }
@@ -26,7 +18,7 @@ export class SqlUserService {
   }
   load(id: string): Promise<User> {
     return new Promise<User>((resolve, reject) => {
-      pool.query('SELECT * FROM users WHERE id = $1', 
+      this.pool.query('SELECT * FROM users WHERE id = $1', 
       [id],  (err, results) => {
         if (err) {
           return reject(err);
@@ -39,7 +31,7 @@ export class SqlUserService {
   }
   insert(user: User): Promise<number> {
     return new Promise<number>((resolve, reject) => {
-      pool.query('INSERT INTO users (id, username, email, phone, "dateOfBirth") VALUES ($1, $2, $3, $4, $5)', 
+      this.pool.query('INSERT INTO users (id, username, email, phone, "dateOfBirth") VALUES ($1, $2, $3, $4, $5)', 
       [user.id, user.username, user.email, user.phone, user.dateOfBirth],  (err, results) => {
         if (err) {
           return reject(err);
@@ -52,7 +44,7 @@ export class SqlUserService {
   }
   update(user: User): Promise<number> {
     return new Promise<number>((resolve, reject) => {
-      pool.query('UPDATE users SET username=$2, email=$3, phone=$4, "dateOfBirth"= $5 WHERE id = $1', 
+      this.pool.query('UPDATE users SET username=$2, email=$3, phone=$4, "dateOfBirth"= $5 WHERE id = $1', 
       [user.id, user.username, user.email, user.phone, user.dateOfBirth],  (err, results) => {
         if (err) {
           return reject(err);
@@ -65,7 +57,7 @@ export class SqlUserService {
   }
   delete(id: string): Promise<number> {
     return new Promise<number>((resolve, reject) => {
-      pool.query('DELETE FROM users WHERE id = $1', 
+      this.pool.query('DELETE FROM users WHERE id = $1', 
       [id],  (err, results) => {
         if (err) {
           return reject(err);
