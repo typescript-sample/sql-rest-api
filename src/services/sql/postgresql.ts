@@ -82,7 +82,7 @@ export function query<T>(pool: Pool, sql: string, args?: any[], m?: StringMap, f
       if (err) {
         return reject(err);
       } else {
-        return handleResults(results.rows, m, fields);
+        return resolve(handleResults(results.rows, m, fields));
       }
     });
   });
@@ -125,7 +125,7 @@ export function queryWithclient<T>(client: PoolClient, sql: string, args?: any[]
       if (err) {
         return reject(err);
       } else {
-        return handleResults(results.rows, m, fields);
+        return resolve(handleResults(results.rows, m, fields));
       }
     });
   });
