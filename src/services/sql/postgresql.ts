@@ -7,6 +7,9 @@ export interface Statement {
   query: string;
   args?: any[];
 }
+export const dateMap: StringMap = {
+  dateofbirth: 'dateOfBirth',
+}
 export interface Manager {
   exec(sql: string, args?: any[]): Promise<number>;
   query<T>(sql: string, args?: any[], m?: StringMap, fields?: string): Promise<T[]>;
@@ -17,6 +20,7 @@ export interface Manager {
 export class PoolManager implements Manager {
   constructor(public pool: Pool) {
     this.exec = this.exec.bind(this);
+    this.execute = this.execute.bind(this);
     this.query = this.query.bind(this);
     this.queryOne = this.queryOne.bind(this);
     this.executeScalar = this.executeScalar.bind(this);
@@ -24,6 +28,9 @@ export class PoolManager implements Manager {
   }
   exec(sql: string, args?: any[]): Promise<number> {
     return exec(this.pool, sql, args);
+  }
+  execute(statements: Statement[]): Promise<number>{
+    return execute(this.pool, statements);
   }
   query<T>(sql: string, args?: any[], m?: StringMap, fields?: string): Promise<T[]> {
     return query(this.pool, sql, args, m, fields);
@@ -41,6 +48,7 @@ export class PoolManager implements Manager {
 export class PoolClientManager implements Manager {
   constructor(public client: PoolClient) {
     this.exec = this.exec.bind(this);
+    this.execute = this.execute.bind(this);
     this.query = this.query.bind(this);
     this.queryOne = this.queryOne.bind(this);
     this.executeScalar = this.executeScalar.bind(this);
@@ -48,6 +56,9 @@ export class PoolClientManager implements Manager {
   }
   exec(sql: string, args?: any[]): Promise<number> {
     return execWithClient(this.client, sql, args);
+  }
+  execute(statements: Statement[]): Promise<number>{
+    return executeWithClient(this.client, statements);
   }
   query<T>(sql: string, args?: any[], m?: StringMap, fields?: string): Promise<T[]> {
     return queryWithclient(this.client, sql, args, m, fields);
@@ -62,7 +73,46 @@ export class PoolClientManager implements Manager {
     return countWithclient(this.client, sql, args);
   }
 }
-
+export async function executeWithClient(client: PoolClient, statements: Statement[]) : Promise<number>{
+  try {
+    await client.query('BEGIN')
+    const arrPromise =  statements.map((item) => 
+      client.query(item.query,item.args?item.args:[])
+    )
+    let count = 0;
+    await Promise.all(arrPromise).then(results =>{
+        for (const obj of results){
+          count += obj.rowCount;
+        }
+      });
+    await client.query('COMMIT')
+    return count;
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.log(e);
+    throw e;
+  } 
+}
+export async function execute(pool: Pool, statements: Statement[]) : Promise<number>{
+  try {
+    await pool.query('BEGIN')
+    const arrPromise =  statements.map((item) => 
+      pool.query(item.query,item.args?item.args:[])
+    )
+    let count = 0;
+    await Promise.all(arrPromise).then(results =>{
+        for (const obj of results){
+          count += obj.rowCount;
+        }
+      });
+    await pool.query('COMMIT')
+    return count;
+  } catch (e) {
+    await pool.query('ROLLBACK');
+    console.log(e);
+    throw e;
+  } 
+}
 export function exec(pool: Pool, sql: string, args?: any[]): Promise<number> {
   const p = (args ? args : []);
   return new Promise<number>((resolve, reject) => {
