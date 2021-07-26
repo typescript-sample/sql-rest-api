@@ -1,10 +1,10 @@
-# mongo-rest-api
+# sql-rest-api
 
 ## How to run
 #### Clone the repository
 ```shell
-git clone https://github.com/typescript-tutorials/mongo-rest-api.git
-cd mongo-rest-api
+git clone https://github.com/typescript-tutorial/sql-rest-api.git
+cd sql-rest-api
 ```
 
 #### To run the application
