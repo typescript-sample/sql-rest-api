@@ -1,6 +1,6 @@
 create table users (
   id character varying(40) NOT NULL,
-  username character varying(120),
+  username character varying(120) NOT NULL,
   email character varying(120),
   phone character varying(45),
   date_of_birth timestamp with time zone,
