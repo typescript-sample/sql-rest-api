@@ -106,7 +106,7 @@ export function exec(pool: Pool, sql: string, args?: any[]): Promise<number> {
 }
 export function query<T>(pool: Pool, sql: string, args?: any[], m?: StringMap, fields?: string[]): Promise<T[]> {
   const p = toArray(args);
-  return new Promise<T[]>((resolve, reject) => {
+  return new Promise<T[]>((resolve, reject) => { 
     return pool.query<T>(sql, p, (err, results) => {
       if (err) {
         return reject(err);
@@ -208,6 +208,7 @@ export function toArray<T>(arr: T[]): T[] {
       p.push(arr[i]);
     }
   }
+  return p;
 }
 export function handleResults<T>(r: T[], m?: StringMap, fields?: string[]) {
   if (m) {
