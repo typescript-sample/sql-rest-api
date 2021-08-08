@@ -228,7 +228,7 @@
 			"response": []
 		},
 		{
-			"name": "delete  an user",
+			"name": "delete an user",
 			"request": {
 				"method": "DELETE",
 				"header": [
