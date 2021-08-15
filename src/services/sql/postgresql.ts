@@ -1,34 +1,34 @@
-import {Pool, PoolClient} from 'pg';
+import {Pool} from 'pg';
 
 export interface StringMap {
   [key: string]: string;
 }
 export interface Statement {
   query: string;
-  args?: any[];
+  params?: any[];
 }
 
 export interface Manager {
   exec(sql: string, args?: any[]): Promise<number>;
-  execute(statements: Statement[]): Promise<number>;
+  execBatch(statements: Statement[]): Promise<number>;
   query<T>(sql: string, args?: any[], m?: StringMap, fields?: string[]): Promise<T[]>;
   queryOne<T>(sql: string, args?: any[], m?: StringMap, fields?: string[]): Promise<T>;
-  executeScalar<T>(sql: string, args?: any[]): Promise<T>;
+  execScalar<T>(sql: string, args?: any[]): Promise<T>;
   count(sql: string, args?: any[]): Promise<number>;
 }
 export class PoolManager implements Manager {
   constructor(public pool: Pool) {
     this.exec = this.exec.bind(this);
-    this.execute = this.execute.bind(this);
+    this.execBatch = this.execBatch.bind(this);
     this.query = this.query.bind(this);
     this.queryOne = this.queryOne.bind(this);
-    this.executeScalar = this.executeScalar.bind(this);
+    this.execScalar = this.execScalar.bind(this);
     this.count = this.count.bind(this);
   }
   exec(sql: string, args?: any[]): Promise<number> {
     return exec(this.pool, sql, args);
   }
-  execute(statements: Statement[]): Promise<number> {
+  execBatch(statements: Statement[]): Promise<number> {
     return execute(this.pool, statements);
   }
   query<T>(sql: string, args?: any[], m?: StringMap, fields?: string[]): Promise<T[]> {
@@ -37,56 +37,28 @@ export class PoolManager implements Manager {
   queryOne<T>(sql: string, args?: any[], m?: StringMap, fields?: string[]): Promise<T> {
     return queryOne(this.pool, sql, args, m, fields);
   }
-  executeScalar<T>(sql: string, args?: any[]): Promise<T> {
-    return executeScalar<T>(this.pool, sql, args);
+  execScalar<T>(sql: string, args?: any[]): Promise<T> {
+    return execScalar<T>(this.pool, sql, args);
   }
   count(sql: string, args?: any[]): Promise<number> {
     return count(this.pool, sql, args);
   }
 }
-export class PoolClientManager implements Manager {
-  constructor(public client: PoolClient) {
-    this.exec = this.exec.bind(this);
-    this.execute = this.execute.bind(this);
-    this.query = this.query.bind(this);
-    this.queryOne = this.queryOne.bind(this);
-    this.executeScalar = this.executeScalar.bind(this);
-    this.count = this.count.bind(this);
-  }
-  exec(sql: string, args?: any[]): Promise<number> {
-    return execWithClient(this.client, sql, args);
-  }
-  execute(statements: Statement[]): Promise<number> {
-    return executeWithClient(this.client, statements);
-  }
-  query<T>(sql: string, args?: any[], m?: StringMap, fields?: string[]): Promise<T[]> {
-    return queryWithclient(this.client, sql, args, m, fields);
-  }
-  queryOne<T>(sql: string, args?: any[], m?: StringMap, fields?: string[]): Promise<T> {
-    return queryOneWithClient(this.client, sql, args, m, fields);
-  }
-  executeScalar<T>(sql: string, args?: any[]): Promise<T> {
-    return executeScalarWithclient<T>(this.client, sql, args);
-  }
-  count(sql: string, args?: any[]): Promise<number> {
-    return countWithclient(this.client, sql, args);
-  }
-}
 export async function execute(pool: Pool, statements: Statement[]): Promise<number> {
   const client = await pool.connect();
   try {
-    await client.query('BEGIN');
-    const arrPromise = statements.map((item) => client.query(item.query, item.args ? item.args : []));
+    await client.query('begin');
+    const arrPromise = statements.map((item) => client.query(item.query, item.params ? item.params : []));
     let c = 0;
     await Promise.all(arrPromise).then(results => {
       for (const obj of results) {
         c += obj.rowCount;
       }
     });
-    await client.query('COMMIT');
+    await client.query('commit');
     return c;
   } catch (e) {
-    await client.query('ROLLBACK');
+    await client.query('rollback');
     throw e;
   } finally {
     client.release();
@@ -121,7 +93,7 @@ export function queryOne<T>(pool: Pool, sql: string, args?: any[], m?: StringMap
     return (r && r.length > 0 ? r[0] : null);
   });
 }
-export function executeScalar<T>(pool: Pool, sql: string, args?: any[]): Promise<T> {
+export function execScalar<T>(pool: Pool, sql: string, args?: any[]): Promise<T> {
   return queryOne<T>(pool, sql, args).then(r => {
     if (!r) {
       return null;
@@ -132,67 +104,7 @@ export function executeScalar<T>(pool: Pool, sql: string, args?: any[]): Promise
   });
 }
 export function count(pool: Pool, sql: string, args?: any[]): Promise<number> {
-  return executeScalar<number>(pool, sql, args);
-}
-
-export async function executeWithClient(client: PoolClient, statements: Statement[]): Promise<number> {
-  try {
-    await client.query('BEGIN');
-    const arrPromise = statements.map((item) => client.query(item.query, item.args ? item.args : []));
-    let c = 0;
-    await Promise.all(arrPromise).then(results => {
-      for (const obj of results) {
-        c += obj.rowCount;
-      }
-    });
-    await client.query('COMMIT');
-    return c;
-  } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
-  }
-}
-export function execWithClient(client: PoolClient, sql: string, args?: any[]): Promise<number> {
-  const p = toArray(args);
-  return new Promise<number>((resolve, reject) => {
-    return client.query(sql, p, (err, results) => {
-      if (err) {
-        return reject(err);
-      } else {
-        return resolve(results.rowCount);
-      }
-    });
-  });
-}
-export function queryWithclient<T>(client: PoolClient, sql: string, args?: any[], m?: StringMap, fields?: string[]): Promise<T[]> {
-  const p = toArray(args);
-  return new Promise<T[]>((resolve, reject) => {
-    return client.query<T>(sql, p, (err, results) => {
-      if (err) {
-        return reject(err);
-      } else {
-        return resolve(handleResults(results.rows, m, fields));
-      }
-    });
-  });
-}
-export function queryOneWithClient<T>(client: PoolClient, sql: string, args?: any[], m?: StringMap, fields?: string[]): Promise<T> {
-  return queryWithclient<T>(client, sql, args, m, fields).then(r => {
-    return (r && r.length > 0 ? r[0] : null);
-  });
-}
-export function executeScalarWithclient<T>(client: PoolClient, sql: string, args?: any[]): Promise<T> {
-  return queryOneWithClient<T>(client, sql, args).then(r => {
-    if (!r) {
-      return null;
-    } else {
-      const keys = Object.keys(r);
-      return r[keys[0]];
-    }
-  });
-}
-export function countWithclient(client: PoolClient, sql: string, args?: any[]): Promise<number> {
-  return executeScalarWithclient<number>(client, sql, args);
+  return execScalar<number>(pool, sql, args);
 }
 
 export function toArray<T>(arr: T[]): T[] {
@@ -232,10 +144,10 @@ export function handleBool<T>(objs: T[], fields: string[]) {
   }
   for (const obj of objs) {
     for (const field of fields) {
-      const value = obj[field];
-      if (value != null && value !== undefined) {
+      const v = obj[field];
+      if (typeof v !== 'boolean' && v != null && v !== undefined) {
         // tslint:disable-next-line:triple-equals
-        obj[field] = ('1' == value || 'T' === value || 'Y' === value);
+        obj[field] = ('1' == v || 't' === v || 'y' === v);
       }
     }
   }
