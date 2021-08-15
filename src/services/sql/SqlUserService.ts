@@ -1,28 +1,37 @@
 import {Pool} from 'pg';
+import {exec, param, query, queryOne, StringMap} from 'postgre';
+import {Attribute, buildMap, buildToDelete, buildToInsert, buildToUpdate, keys, select} from 'query-core';
+import {userModel} from '../../metadata/UserModel';
 import {User} from '../../models/User';
-import {exec, query, queryOne, StringMap} from './postgresql';
 
-export const dateMap: StringMap = {
-  date_of_birth: 'dateOfBirth',
-};
 export class SqlUserService {
+  private keys: Attribute[];
+  private map: StringMap;
   constructor(private pool: Pool) {
+    this.keys = keys(userModel.attributes);
+    this.map = buildMap(userModel.attributes);
   }
   all(): Promise<User[]> {
-    return query<User>(this.pool, 'select * from users order by id asc', undefined, dateMap);
+    return query<User>(this.pool, 'select * from users order by id asc', undefined, this.map);
   }
   load(id: string): Promise<User> {
-    return queryOne(this.pool, 'select * from users where id = $1', [id], dateMap);
+    const stmt = select(id, 'users', this.keys, param);
+    return queryOne(this.pool, stmt.query, stmt.params, this.map);
   }
   insert(user: User): Promise<number> {
-    return exec(this.pool, `insert into users (id, username, email, phone, date_of_birth) values ($1, $2, $3, $4, $5)`,
-     [user.id, user.username, user.email, user.phone, user.dateOfBirth]);
+    const stmt = buildToInsert(user, 'users', userModel.attributes, param);
+    return exec(this.pool, stmt.query, stmt.params);
   }
   update(user: User): Promise<number> {
-    return exec(this.pool, `update users set username=$2, email=$3, phone=$4, date_of_birth= $5 where id = $1`,
-     [user.id, user.username, user.email, user.phone, user.dateOfBirth]);
+    const stmt = buildToUpdate(user, 'users', userModel.attributes, param);
+    return exec(this.pool, stmt.query, stmt.params);
+  }
+  patch(user: User): Promise<number> {
+    const stmt = buildToUpdate(user, 'users', userModel.attributes, param);
+    return exec(this.pool, stmt.query, stmt.params);
   }
   delete(id: string): Promise<number> {
-    return exec(this.pool, `delete from users where id = $1`, [id]);
+    const stmt = buildToDelete(id, 'users', this.keys, param);
+    return exec(this.pool, stmt.query, stmt.params);
   }
 }
